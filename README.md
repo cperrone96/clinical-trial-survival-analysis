@@ -26,7 +26,9 @@ regression for adjusted hazard ratios.
 3. **Cox proportional-hazards** — adjusted hazard ratios (C-index ≈ 0.69);
    positive lymph nodes and tumor grade are the strongest adverse factors,
    hormonal therapy and progesterone-receptor level are protective
-4. **Proportional-hazards diagnostics** — scaled Schoenfeld residual test
+4. **Proportional-hazards diagnostics** — scaled Schoenfeld residual test holds
+   for most covariates but flags tumor grade (p ≈ 0.018), which would motivate
+   stratifying on grade
 
 ![Recurrence-free survival by hormonal therapy](figures/km_hormone.png)
 
