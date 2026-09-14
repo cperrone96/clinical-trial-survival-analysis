@@ -14,6 +14,10 @@ data gbsg2;
     if tgrade="I" then grade_ord=1;
     else if tgrade="II" then grade_ord=2;
     else if tgrade="III" then grade_ord=3;
+    log_time=log(time_days/365.25);
+    age_logtime=age*log_time;
+    menostat_Post_logtime=post_meno*log_time;
+    estrec_logtime=estrec*log_time;
     label time_days="Recurrence-free time (days)" event="Event (1=event, 0=censored)";
 run;
 
@@ -32,7 +36,7 @@ run;
 /* Original constant-HR model, equivalent grade ordinal coding. */
 proc phreg data=gbsg2;
     class horTh(ref="no") menostat(ref="pre") / param=ref;
-    model time_days*event(0)=horTh age menostat tsize grade_ord pnodes progrec estrec / risklimits;
+    model time_days*event(0)=horTh age menostat tsize grade_ord pnodes progrec estrec / ties=breslow risklimits;
     assess ph / resample seed=20260914;
     output out=cox_original xbeta=lp resmart=martingale ressch=sch_grade;
 run;
@@ -41,6 +45,16 @@ run;
 proc phreg data=gbsg2;
     class horTh(ref="no") menostat(ref="pre") / param=ref;
     strata tgrade;
-    model time_days*event(0)=horTh age menostat tsize pnodes progrec estrec / risklimits;
+    model time_days*event(0)=horTh age menostat tsize pnodes progrec estrec / ties=breslow risklimits;
     output out=cox_revised xbeta=lp;
+run;
+
+/* Sensitivity model for age, menopausal status, and ER trends flagged by the
+   original Schoenfeld screen. Time is centered at one year. */
+proc phreg data=gbsg2;
+    class horTh(ref="no") menostat(ref="pre") / param=ref;
+    strata tgrade;
+    model time_days*event(0)=horTh age menostat tsize pnodes progrec estrec
+        age_logtime menostat_Post_logtime estrec_logtime / ties=breslow risklimits;
+    output out=cox_sensitivity xbeta=lp;
 run;

@@ -31,3 +31,6 @@ def test_deterministic_metrics_and_outputs(tmp_path):
     assert (tmp_path / "ph_diagnostics.csv").exists()
     loaded = json.loads((tmp_path / "metrics.json").read_text())
     assert loaded["grade_coding"] == {"I": 1, "II": 2, "III": 3}
+    assert loaded["sensitivity_terms"][-3:] == ["age_logtime", "menostat_Post_logtime", "estrec_logtime"]
+    flagged = {x["term"] for x in loaded["diagnostics"]["proportional_hazards"] if x["p_value"] < 0.05}
+    assert {"age", "menostat_Post", "grade_ord", "estrec"}.issubset(flagged)
