@@ -1,0 +1,2 @@
+# R's fixed-width printed summaries intentionally contain alignment padding.
+outputs-r/*.txt whitespace=-trailing-space
