@@ -1,53 +1,30 @@
-# Survival Analysis of a Breast-Cancer Trial (GBSG2)
+# Clinical-Trial Survival Analysis (GBSG2)
 
-Time-to-event analysis of the **German Breast Cancer Study Group 2 (GBSG2)**
-trial — 686 node-positive breast-cancer patients followed for recurrence-free
-survival. This is the standard workflow for reading out a clinical trial:
-Kaplan-Meier estimation, log-rank group comparisons, and Cox proportional-hazards
-regression for adjusted hazard ratios.
+This reproducible educational analysis estimates recurrence-free survival (days to recurrence/death; censoring indicator `event=0`) in 686 women from the public **German Breast Cancer Study Group 2 (GBSG2)** data. The observation unit is one participant. The analysis is descriptive/associational for this archived dataset; it is not clinical validation, treatment guidance, or a claim about current patients.
 
-**The same analysis is implemented in three languages** to show tooling breadth:
+## Data contract and provenance
 
-| Language | File | Toolkit | Context |
-|---|---|---|---|
-| **Python** | `survival_analysis.ipynb` | `lifelines` | Executed here — plots & output rendered inline |
-| **R** | `r/survival_analysis.R` | `survival` + `survminer` | The workflow I used at UC Irvine for publication figures |
-| **SAS** | `sas/survival_analysis.sas` | `PROC LIFETEST` + `PROC PHREG` | The workflow I used at Pfizer for clinical-trial reporting |
+The checked-in `data/gbsg2.csv` is a normalized copy of `TH.data::GBSG2` (CRAN package version 1.1-2 documentation, [dataset reference](https://rdrr.io/cran/TH.data/man/GBSG2.html)). The source describes 686 women, recurrence-free time, censoring, and the original GBSG publications (Schumacher et al., 1994; Sauerbrei & Royston, 1999). Transformation: column names `time` → `time_days` and `cens` → `event`; factor labels are retained; row order and values are otherwise unchanged. SHA-256: `63a36b795dede63f0c8015010a65c9cd17c4593989a8b39172587135a231024e`.
 
-> The Python notebook is executed with its outputs saved, so it renders on
-> GitHub as-is. The R and SAS scripts are the equivalent implementations, ready
-> to run in their environments (RStudio / SAS).
+The single grade estimand is ordinal tumor grade: I=1, II=2, III=3. This coding is applied in Python, R, and SAS. The original model treats grade as a constant hazard-ratio term. A Schoenfeld residual time-trend diagnostic flags the grade term, so the primary revision stratifies the baseline hazard by grade and does not report a grade HR. Other covariates are baseline hormone assignment, age, menopausal status, tumor size, positive nodes, progesterone receptor, and estrogen receptor.
 
-## Analysis
+## Results and interpretation
 
-1. **Kaplan-Meier** — overall recurrence-free survival (median ≈ 1,807 days / 4.9 yrs)
-2. **Log-rank tests** — hormonal therapy shows a significant survival benefit
-   (p ≈ 0.003); tumor grade strongly stratifies survival (p < 0.001)
-3. **Cox proportional-hazards** — adjusted hazard ratios (C-index ≈ 0.69);
-   positive lymph nodes and tumor grade are the strongest adverse factors,
-   hormonal therapy and progesterone-receptor level are protective
-4. **Proportional-hazards diagnostics** — scaled Schoenfeld residual test holds
-   for most covariates but flags tumor grade (p ≈ 0.018), which would motivate
-   stratifying on grade
+The dataset contains 299 observed events and 387 censored records. Hormone-group and grade-group Kaplan–Meier/log-rank summaries are descriptive contrasts. The adjusted Cox estimates are associations conditional on the listed covariates and model assumptions; they do not establish that hormonal therapy caused a benefit. Residual, functional-form, influence, and proportional-hazards diagnostics are exported so readers can inspect model limitations.
 
-![Recurrence-free survival by hormonal therapy](figures/km_hormone.png)
+## Implementations
 
-## Skills demonstrated
-
-- Survival / time-to-event analysis (Kaplan-Meier, log-rank, Cox PH)
-- Hazard-ratio interpretation and model-assumption diagnostics
-- Equivalent implementation across **Python, R, and SAS**
-
-## Data
-
-GBSG2 breast-cancer trial, distributed publicly with the `lifelines` (Python)
-and `TH.data` (R) packages. A copy is included at `data/gbsg2.csv`.
-
-## Run it
+- `analysis.py` is the deterministic Python analysis (`statsmodels` PHReg), writing `outputs/metrics.json`, coefficient/parity tables, diagnostics, and a residual plot.
+- `r/survival_analysis.R` uses `survival::coxph`; pass `--data` and `--output-dir` explicitly for any working directory.
+- `sas/survival_analysis.sas` uses `PROC LIFETEST` and `PROC PHREG`; set `REPO_ROOT` to the repository root before submitting. The original and grade-stratified models are both included.
+- `survival_analysis.ipynb` is a clean, executed wrapper around `analysis.py`.
 
 ```bash
-pip install -r requirements.txt   # Python version
-jupyter lab
-# R:   Rscript r/survival_analysis.R
-# SAS: submit sas/survival_analysis.sas
+python -m pip install -r requirements.txt
+python analysis.py
+pytest -q
+# Optional R parity (from repository root):
+Rscript r/survival_analysis.R --data "$PWD/data/gbsg2.csv" --output-dir "$PWD/outputs-r"
 ```
+
+The analysis is a public-data methods portfolio artifact. It contains no patient-identifying information, does not reproduce a sponsor workflow, and should not be used for treatment decisions.

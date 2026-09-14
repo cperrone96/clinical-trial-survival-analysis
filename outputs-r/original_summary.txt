@@ -1,0 +1,33 @@
+Call:
+coxph(formula = surv_obj ~ horTh + age + menostat + tsize + grade_ord + 
+    pnodes + progrec + estrec, data = df, ties = "breslow")
+
+  n= 686, number of events= 299 
+
+                   coef  exp(coef)   se(coef)      z Pr(>|z|)    
+horThyes     -0.3371762  0.7137831  0.1289607 -2.615 0.008934 ** 
+age          -0.0093869  0.9906571  0.0092730 -1.012 0.311406    
+menostatpost  0.2669902  1.3060276  0.1833406  1.456 0.145323    
+tsize         0.0077188  1.0077487  0.0039497  1.954 0.050671 .  
+grade_ord     0.2801300  1.3233018  0.1060552  2.641 0.008257 ** 
+pnodes        0.0498871  1.0511524  0.0074103  6.732 1.67e-11 ***
+progrec      -0.0022380  0.9977645  0.0005757 -3.887 0.000101 ***
+estrec        0.0001680  1.0001680  0.0004477  0.375 0.707544    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+             exp(coef) exp(-coef) lower .95 upper .95
+horThyes        0.7138     1.4010    0.5544    0.9190
+age             0.9907     1.0094    0.9728    1.0088
+menostatpost    1.3060     0.7657    0.9118    1.8707
+tsize           1.0077     0.9923    1.0000    1.0156
+grade_ord       1.3233     0.7557    1.0749    1.6290
+pnodes          1.0512     0.9513    1.0360    1.0665
+progrec         0.9978     1.0022    0.9966    0.9989
+estrec          1.0002     0.9998    0.9993    1.0010
+
+Concordance= 0.688  (se = 0.015 )
+Likelihood ratio test= 101.8  on 8 df,   p=<2e-16
+Wald test            = 115.2  on 8 df,   p=<2e-16
+Score (logrank) test = 120  on 8 df,   p=<2e-16
+

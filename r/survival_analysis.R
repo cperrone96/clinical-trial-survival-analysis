@@ -1,59 +1,33 @@
-# =============================================================================
-# Survival analysis of the GBSG2 breast-cancer trial
-# Kaplan-Meier estimation, log-rank tests, and Cox proportional-hazards
-# regression using the {survival} and {survminer} packages -- the same workflow
-# used to produce time-to-event figures for peer-reviewed publications.
-# =============================================================================
+# Reproducible GBSG2 analysis. Run from the repository root or pass
+# --data /absolute/path/to/gbsg2.csv. Grade is I=1, II=2, III=3 everywhere.
+suppressPackageStartupMessages(library(survival))
 
-# install.packages(c("survival", "survminer"))
-library(survival)
-library(survminer)
+args <- commandArgs(trailingOnly = TRUE)
+data_path <- if ("--data" %in% args) args[match("--data", args) + 1] else file.path(getwd(), "data", "gbsg2.csv")
+out_dir <- if ("--output-dir" %in% args) args[match("--output-dir", args) + 1] else file.path(getwd(), "outputs-r")
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-df <- read.csv("../data/gbsg2.csv", stringsAsFactors = TRUE)
+df <- read.csv(data_path, stringsAsFactors = FALSE)
+stopifnot(nrow(df) == 686, all(df$event %in% c(0, 1)))
+df$horTh <- factor(df$horTh, levels = c("no", "yes"))
+df$menostat <- factor(tolower(df$menostat), levels = c("pre", "post"))
+df$grade_ord <- unname(c(I = 1, II = 2, III = 3)[df$tgrade])
+df$tgrade <- factor(df$tgrade, levels = c("I", "II", "III"), ordered = TRUE)
+surv_obj <- Surv(df$time_days, df$event)
 
-# Time-to-event object: event = 1 (recurrence/death), 0 (censored)
-surv_obj <- Surv(time = df$time_days, event = df$event)
+# Original constant-HR grade estimand and the resolution: stratified baseline
+# hazard by grade, with no grade HR reported.
+original <- coxph(surv_obj ~ horTh + age + menostat + tsize + grade_ord + pnodes + progrec + estrec, data = df, ties = "breslow")
+revised <- coxph(surv_obj ~ horTh + age + menostat + tsize + pnodes + progrec + estrec + strata(tgrade), data = df, ties = "breslow")
 
-# -----------------------------------------------------------------------------
-# 1. Overall Kaplan-Meier recurrence-free survival
-# -----------------------------------------------------------------------------
-km_overall <- survfit(surv_obj ~ 1, data = df)
-print(km_overall)                      # median survival + n at risk
-summary(km_overall, times = c(365, 730, 1095, 1825))   # 1-, 2-, 3-, 5-year
-
-ggsurvplot(km_overall, data = df, conf.int = TRUE,
-           title = "Overall recurrence-free survival (Kaplan-Meier)",
-           xlab = "Time (days)", ylab = "Survival probability")
-
-# -----------------------------------------------------------------------------
-# 2. Kaplan-Meier by hormonal therapy + log-rank test
-# -----------------------------------------------------------------------------
-km_hort <- survfit(surv_obj ~ horTh, data = df)
-ggsurvplot(km_hort, data = df, pval = TRUE, conf.int = TRUE, risk.table = TRUE,
-           legend.title = "Hormonal therapy", legend.labs = c("no", "yes"),
-           title = "Recurrence-free survival by hormonal therapy",
-           xlab = "Time (days)")
-survdiff(surv_obj ~ horTh, data = df)  # log-rank test
-
-# -----------------------------------------------------------------------------
-# 3. Kaplan-Meier by tumor grade + multi-group log-rank test
-# -----------------------------------------------------------------------------
-km_grade <- survfit(surv_obj ~ tgrade, data = df)
-ggsurvplot(km_grade, data = df, pval = TRUE,
-           title = "Recurrence-free survival by tumor grade", xlab = "Time (days)")
-survdiff(surv_obj ~ tgrade, data = df)
-
-# -----------------------------------------------------------------------------
-# 4. Cox proportional-hazards model -> adjusted hazard ratios
-# -----------------------------------------------------------------------------
-cox <- coxph(surv_obj ~ horTh + age + menostat + tsize + tgrade +
-                        pnodes + progrec + estrec, data = df)
-summary(cox)                           # hazard ratios, 95% CI, p-values
-ggforest(cox, data = df)               # forest plot of hazard ratios
-
-# -----------------------------------------------------------------------------
-# 5. Proportional-hazards assumption (scaled Schoenfeld residuals)
-# -----------------------------------------------------------------------------
-ph <- cox.zph(cox)
-print(ph)
-ggcoxzph(ph)
+write.csv(as.data.frame(summary(original)$coefficients), file.path(out_dir, "cox_original_coefficients.csv"))
+write.csv(as.data.frame(summary(revised)$coefficients), file.path(out_dir, "cox_revised_coefficients.csv"))
+ph <- cox.zph(original)
+write.csv(as.data.frame(ph$table), file.path(out_dir, "ph_diagnostics.csv"))
+metrics <- data.frame(n = nrow(df), events = sum(df$event), censored = sum(df$event == 0),
+                      original_concordance = summary(original)$concordance[1],
+                      revised_concordance = summary(revised)$concordance[1])
+write.csv(metrics, file.path(out_dir, "metrics.csv"), row.names = FALSE)
+capture.output(summary(original), file = file.path(out_dir, "original_summary.txt"))
+capture.output(summary(revised), file = file.path(out_dir, "revised_summary.txt"))
+cat(sprintf("%d patients | %d events | grade PH test p=%.4g\n", nrow(df), sum(df$event), ph$table["grade_ord", "p"]))

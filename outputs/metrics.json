@@ -1,0 +1,155 @@
+{
+  "n": 686,
+  "events": 299,
+  "censored": 387,
+  "grade_counts": {
+    "I": 81,
+    "II": 444,
+    "III": 161
+  },
+  "hormone_counts": {
+    "no": 440,
+    "yes": 246
+  },
+  "estimand": "recurrence-free survival in days; event=recurrence/death; censor=0",
+  "grade_coding": {
+    "I": 1,
+    "II": 2,
+    "III": 3
+  },
+  "original_terms": [
+    "horTh_yes",
+    "age",
+    "menostat_Post",
+    "tsize",
+    "grade_ord",
+    "pnodes",
+    "progrec",
+    "estrec"
+  ],
+  "revised_terms": [
+    "horTh_yes",
+    "age",
+    "menostat_Post",
+    "tsize",
+    "pnodes",
+    "progrec",
+    "estrec"
+  ],
+  "original_loglik": -1737.261055482245,
+  "revised_loglik": -1507.1014055491596,
+  "diagnostics": {
+    "proportional_hazards": [
+      {
+        "term": "horTh_yes",
+        "schoenfeld_logtime_r": 0.03533271976682411,
+        "p_value": 0.5427957080125545
+      },
+      {
+        "term": "age",
+        "schoenfeld_logtime_r": 0.16115979224492352,
+        "p_value": 0.0052169644060874034
+      },
+      {
+        "term": "menostat_Post",
+        "schoenfeld_logtime_r": 0.13328636845074432,
+        "p_value": 0.021145393128116204
+      },
+      {
+        "term": "tsize",
+        "schoenfeld_logtime_r": -0.03830738725528896,
+        "p_value": 0.5093408901321385
+      },
+      {
+        "term": "grade_ord",
+        "schoenfeld_logtime_r": -0.17939348258811938,
+        "p_value": 0.0018437398670541332
+      },
+      {
+        "term": "pnodes",
+        "schoenfeld_logtime_r": 0.04401656225738251,
+        "p_value": 0.44827317521512994
+      },
+      {
+        "term": "progrec",
+        "schoenfeld_logtime_r": 0.099022202849114,
+        "p_value": 0.08739813913335163
+      },
+      {
+        "term": "estrec",
+        "schoenfeld_logtime_r": 0.13525133255688954,
+        "p_value": 0.019300339240519722
+      }
+    ],
+    "functional_form_screen": [
+      {
+        "term": "age",
+        "residual_covariate_r": 0.0008601023744610886,
+        "p_value": 0.9822446273688679
+      },
+      {
+        "term": "tsize",
+        "residual_covariate_r": 0.0008327391256342173,
+        "p_value": 0.9828094071520183
+      },
+      {
+        "term": "pnodes",
+        "residual_covariate_r": 0.0003698325173523351,
+        "p_value": 0.9923649147057843
+      },
+      {
+        "term": "progrec",
+        "residual_covariate_r": -0.001820495783319621,
+        "p_value": 0.9624296823521344
+      },
+      {
+        "term": "estrec",
+        "residual_covariate_r": -0.0010230107557548038,
+        "p_value": 0.9788823779622785
+      }
+    ],
+    "influence_screen": [
+      {
+        "row": 144,
+        "max_abs_score": 803.2811516298866
+      },
+      {
+        "row": 497,
+        "max_abs_score": 797.0643240053805
+      },
+      {
+        "row": 576,
+        "max_abs_score": 736.633189234446
+      },
+      {
+        "row": 566,
+        "max_abs_score": 615.3633797279563
+      },
+      {
+        "row": 676,
+        "max_abs_score": 503.80971458144177
+      },
+      {
+        "row": 616,
+        "max_abs_score": 488.2784560144698
+      },
+      {
+        "row": 133,
+        "max_abs_score": 464.19224482267856
+      },
+      {
+        "row": 446,
+        "max_abs_score": 455.10761486756223
+      },
+      {
+        "row": 586,
+        "max_abs_score": 430.4225724948971
+      },
+      {
+        "row": 515,
+        "max_abs_score": 402.9309726892781
+      }
+    ],
+    "max_abs_martingale_residual": 4.47211063226204
+  }
+}
