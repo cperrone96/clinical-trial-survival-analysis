@@ -13,29 +13,21 @@ df$horTh <- factor(df$horTh, levels = c("no", "yes"))
 df$menostat <- factor(tolower(df$menostat), levels = c("pre", "post"))
 df$grade_ord <- unname(c(I = 1, II = 2, III = 3)[df$tgrade])
 df$tgrade <- factor(df$tgrade, levels = c("I", "II", "III"), ordered = TRUE)
-df$log_time <- log(df$time_days / 365.25)
-df$age_logtime <- df$age * df$log_time
-df$menostat_Post_logtime <- (df$menostat == "post") * df$log_time
-df$estrec_logtime <- df$estrec * df$log_time
 surv_obj <- Surv(df$time_days, df$event)
 
 # Original constant-HR grade estimand and the resolution: stratified baseline
 # hazard by grade, with no grade HR reported.
 original <- coxph(surv_obj ~ horTh + age + menostat + tsize + grade_ord + pnodes + progrec + estrec, data = df, ties = "breslow")
 revised <- coxph(surv_obj ~ horTh + age + menostat + tsize + pnodes + progrec + estrec + strata(tgrade), data = df, ties = "breslow")
-sensitivity <- coxph(surv_obj ~ horTh + age + menostat + tsize + pnodes + progrec + estrec + age_logtime + menostat_Post_logtime + estrec_logtime + strata(tgrade), data = df, ties = "breslow")
 
 write.csv(as.data.frame(summary(original)$coefficients), file.path(out_dir, "cox_original_coefficients.csv"))
 write.csv(as.data.frame(summary(revised)$coefficients), file.path(out_dir, "cox_revised_coefficients.csv"))
-write.csv(as.data.frame(summary(sensitivity)$coefficients), file.path(out_dir, "cox_sensitivity_coefficients.csv"))
 ph <- cox.zph(original)
 write.csv(as.data.frame(ph$table), file.path(out_dir, "ph_diagnostics.csv"))
 metrics <- data.frame(n = nrow(df), events = sum(df$event), censored = sum(df$event == 0),
                       original_concordance = summary(original)$concordance[1],
-                      revised_concordance = summary(revised)$concordance[1],
-                      sensitivity_concordance = summary(sensitivity)$concordance[1])
+                      revised_concordance = summary(revised)$concordance[1])
 write.csv(metrics, file.path(out_dir, "metrics.csv"), row.names = FALSE)
 capture.output(summary(original), file = file.path(out_dir, "original_summary.txt"))
 capture.output(summary(revised), file = file.path(out_dir, "revised_summary.txt"))
-capture.output(summary(sensitivity), file = file.path(out_dir, "sensitivity_summary.txt"))
 cat(sprintf("%d patients | %d events | grade PH test p=%.4g\n", nrow(df), sum(df$event), ph$table["grade_ord", "p"]))

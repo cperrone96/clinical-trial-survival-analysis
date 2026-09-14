@@ -36,22 +36,9 @@
     "progrec",
     "estrec"
   ],
-  "sensitivity_terms": [
-    "horTh_yes",
-    "age",
-    "menostat_Post",
-    "tsize",
-    "pnodes",
-    "progrec",
-    "estrec",
-    "age_logtime",
-    "menostat_Post_logtime",
-    "estrec_logtime"
-  ],
-  "sensitivity_decision": "retain grade stratification and add centered log-time interactions for age, menopausal status, and estrogen receptor flagged by the original Schoenfeld screen",
+  "ph_limitation": "age, menopausal status, and estrogen receptor also show residual time trends; no outcome-leaking fixed time interactions are fitted, so their non-PH behavior remains a limitation",
   "original_loglik": -1737.261055482245,
   "revised_loglik": -1507.1014055491596,
-  "sensitivity_loglik": -856.1514190877342,
   "diagnostics": {
     "proportional_hazards": [
       {

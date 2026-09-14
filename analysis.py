@@ -2,11 +2,9 @@
 
 The estimand is recurrence-free survival (days to recurrence/death or censoring).
 Tumor grade is coded ordinally (I=1, II=2, III=3) in the original model in all
-three language implementations.  Because its Schoenfeld residual trend is
+three language implementations. Because its Schoenfeld residual trend is
 diagnostic evidence against a constant grade HR, the primary revision
-stratifies the Cox baseline hazard by grade and does not report a grade HR. A
-sensitivity model adds centered log-time interactions for the other flagged
-terms (age, menopausal status, and estrogen receptor).
+stratifies the Cox baseline hazard by grade and does not report a grade HR.
 """
 from __future__ import annotations
 
@@ -50,13 +48,8 @@ def design_matrix(df: pd.DataFrame, include_grade: bool = True) -> pd.DataFrame:
     return out
 
 
-def fit_ph(df: pd.DataFrame, stratified: bool = False, time_interactions: bool = False):
+def fit_ph(df: pd.DataFrame, stratified: bool = False):
     X = design_matrix(df, include_grade=not stratified)
-    if time_interactions:
-        log_time = np.log(df.time_days.to_numpy(dtype=float) / 365.25)
-        X["age_logtime"] = X["age"] * log_time
-        X["menostat_Post_logtime"] = X["menostat_Post"] * log_time
-        X["estrec_logtime"] = X["estrec"] * log_time
     # PHReg's strata argument is the grade contract used by the R/SAS scripts.
     model = PHReg(df.time_days, X, status=df.event, strata=df.tgrade if stratified else None)
     return model.fit(disp=0), X
@@ -75,8 +68,8 @@ def diagnostics(df: pd.DataFrame, result, X: pd.DataFrame) -> dict:
     """Return functional-form, influence and PH diagnostics without claims of validation."""
     mart = np.asarray(result.martingale_residuals)
     sch = np.asarray(result.schoenfeld_residuals)
-    # Schoenfeld residuals are only event rows in theory; statsmodels returns an
-    # n-row array with zeros for censored observations.  Restrict to events.
+    # statsmodels returns NaN Schoenfeld residuals for censored observations;
+    # restrict to observed events explicitly.
     event = df.event.to_numpy(dtype=bool)
     log_time = np.log(df.time_days.to_numpy())
     terms = list(X.columns)
@@ -106,11 +99,9 @@ def run(data_path: str | Path | None = None, output_dir: str | Path | None = Non
     df = load_data(data_path)
     original, X0 = fit_ph(df, stratified=False)
     revised, X1 = fit_ph(df, stratified=True)
-    sensitivity, X2 = fit_ph(df, stratified=True, time_interactions=True)
     original_table = _coef_table(original, "original_ordinal_grade")
     revised_table = _coef_table(revised, "revised_grade_stratified")
-    sensitivity_table = _coef_table(sensitivity, "sensitivity_grade_stratified_time_interactions")
-    coef = pd.concat([original_table, revised_table, sensitivity_table], ignore_index=True)
+    coef = pd.concat([original_table, revised_table], ignore_index=True)
     coef.to_csv(out / "cox_coefficients.csv", index=False)
     diag = diagnostics(df, original, X0)
     pd.DataFrame(diag["proportional_hazards"]).to_csv(out / "ph_diagnostics.csv", index=False)
@@ -124,8 +115,8 @@ def run(data_path: str | Path | None = None, output_dir: str | Path | None = Non
                "hormone_counts": df.horTh.value_counts().sort_index().to_dict(),
                "estimand": "recurrence-free survival in days; event=recurrence/death; censor=0",
                "grade_coding": GRADE, "original_terms": list(X0.columns), "revised_terms": list(X1.columns),
-               "sensitivity_terms": list(X2.columns), "sensitivity_decision": "retain grade stratification and add centered log-time interactions for age, menopausal status, and estrogen receptor flagged by the original Schoenfeld screen",
-               "original_loglik": float(original.llf), "revised_loglik": float(revised.llf), "sensitivity_loglik": float(sensitivity.llf),
+               "ph_limitation": "age, menopausal status, and estrogen receptor also show residual time trends; no outcome-leaking fixed time interactions are fitted, so their non-PH behavior remains a limitation",
+               "original_loglik": float(original.llf), "revised_loglik": float(revised.llf),
                "diagnostics": diag}
     with open(out / "metrics.json", "w") as f: json.dump(metrics, f, indent=2)
     # Minimal diagnostic plot: martingale residuals against fitted linear predictor.
