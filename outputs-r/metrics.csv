@@ -1,2 +1,2 @@
-"n","events","censored","original_concordance","revised_concordance"
-686,299,387,0.687980942647589,0.673710192041418
+"n","events","censored","original_loglik","primary_loglik","time_varying_loglik","original_concordance","primary_concordance"
+686,299,387,-1737.26105548225,-1507.10140554916,-1502.00349649789,0.687980942647589,0.673710192041418

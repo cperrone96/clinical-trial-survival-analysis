@@ -1,6 +1,7 @@
 Call:
-coxph(formula = surv_obj ~ horTh + age + menostat + tsize + pnodes + 
-    progrec + estrec + strata(tgrade), data = df, ties = "breslow")
+coxph(formula = Surv(time_days, event) ~ horTh + age + menostat + 
+    tsize + pnodes + progrec + estrec + strata(tgrade), data = df, 
+    ties = "breslow")
 
   n= 686, number of events= 299 
 
@@ -13,7 +14,7 @@ pnodes        0.0475525  1.0487012  0.0075091  6.333 2.41e-10 ***
 progrec      -0.0021759  0.9978265  0.0005735 -3.794 0.000148 ***
 estrec        0.0001599  1.0001599  0.0004484  0.357 0.721415    
 ---
-Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
              exp(coef) exp(-coef) lower .95 upper .95
 horThyes        0.7022     1.4240    0.5449    0.9049

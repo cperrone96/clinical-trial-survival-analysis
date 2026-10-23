@@ -1,12 +1,13 @@
 name: reproducibility
 on: [push, pull_request]
 jobs:
-  fast-gate:
+  python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: {python-version: '3.11'}
+        with: {python-version: '3.12'}
       - run: pip install -r requirements.txt
       - run: python analysis.py
       - run: pytest -q
+      - run: jupyter nbconvert --to notebook --execute survival_analysis.ipynb --output /tmp/executed.ipynb
