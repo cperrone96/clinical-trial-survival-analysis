@@ -114,3 +114,47 @@ def test_run_writes_consistent_outputs(tmp_path):
                  "functional_form_diagnostics.csv", "influence_diagnostics.csv", "time_varying_sensitivity.csv"]:
         assert (tmp_path / name).exists()
     assert metrics["concordance"]["primary"]["n_boot"] == 10
+
+
+# ------------------------------------------------------------ external validation
+import external_validation as ev  # noqa: E402
+
+
+@pytest.fixture(scope="module")
+def cohorts():
+    return ev.load_development(), ev.load_validation()
+
+
+def test_cohorts_are_harmonized(cohorts):
+    dev, val = cohorts
+    assert (len(dev), int(dev.event.sum())) == (1546, 965)
+    assert (dev.nodes > 0).all() and dev.time.max() <= ev.DEV_CENSOR
+    assert len(val) == 686 and set(val["size"]) == set(dev["size"])
+    assert list(ev.features(dev, "cox_log").columns) == list(ev.features(val, "cox_log").columns)
+
+
+@pytest.mark.skipif(not (R_OUT / "external_validation.csv").exists(), reason="R outputs not generated")
+def test_external_cox_matches_r(cohorts):
+    dev, val = cohorts
+    fit = ev.fit_models(dev, {"learning_rate": 0.1, "n_estimators": 10, "max_depth": 1})["cox_log"]
+    r_coef = pd.read_csv(R_OUT / "external_cox_coefficients.csv")
+    np.testing.assert_allclose(fit.coef_, r_coef.log_hr, rtol=1e-5, atol=1e-8)
+    r = pd.read_csv(R_OUT / "external_validation.csv").iloc[0]
+    risk = fit.predict(ev.features(val, "cox_log"))
+    assert analysis.harrell_c(val.time.to_numpy(), val.event.to_numpy(), risk) == pytest.approx(r.harrell_c, abs=1e-6)
+    risk5 = 1 - np.array([fn(ev.HORIZON) for fn in fit.predict_survival_function(ev.features(val, "cox_log"))])
+    assert ev.calibration_slope(val, risk5) == pytest.approx(r.calibration_slope, rel=1e-4)
+
+
+def test_time_varying_effects_at_one_year_equal_main_effects(df):
+    tv, cov = analysis.time_varying_fit(df, return_cov=True)
+    eff = analysis.time_varying_effects(tv, cov).query("years == 1").set_index("term")
+    b = tv.set_index("term").log_hr
+    for term in analysis.TIME_VARYING:
+        assert eff.loc[term, "hr"] == pytest.approx(np.exp(analysis.HR_UNITS[term][0] * b[term]))
+
+
+@pytest.mark.skipif(not (R_OUT / "final_model_ph.csv").exists(), reason="R outputs not generated")
+def test_final_model_passes_global_ph_check():
+    ph = pd.read_csv(R_OUT / "final_model_ph.csv").set_index("term")
+    assert ph.loc["GLOBAL", "p_value"] > 0.05

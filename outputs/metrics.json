@@ -90,6 +90,11 @@
     "original": 0.007086068884416182,
     "primary": 0.12766075373678182
   },
+  "time_varying_lr_test": {
+    "chisq": 10.195818102549765,
+    "df": 3,
+    "p_value": 0.016972889084224414
+  },
   "ph_flagged_primary": [
     "age",
     "menostat_Post",

@@ -68,6 +68,20 @@ tv <- coxph(Surv(time_days, event) ~ horTh + age + menostat + tsize + pnodes + p
             data = df, ties = "breslow", tt = function(x, t, ...) x * log(t / 365.25))
 write.csv(coef_out(tv), file.path(out_dir, "time_varying_sensitivity.csv"), row.names = FALSE)
 
+# Residual PH check for that final model: refit it on data split at every event time (where the
+# x * log(t) terms are ordinary covariates) and apply cox.zph on the Kaplan-Meier time scale.
+cuts <- sort(unique(df$time_days[df$event == 1]))
+long <- survSplit(Surv(time_days, event) ~ ., data = df, cut = cuts, episode = "episode")
+long$post <- as.numeric(long$menostat == "post")
+long$lt <- log(long$time_days / 365.25)
+long$age_lt <- long$age * long$lt; long$post_lt <- long$post * long$lt; long$estrec_lt <- long$estrec * long$lt
+final_split <- coxph(Surv(tstart, time_days, event) ~ horTh + age + post + tsize + pnodes + progrec + estrec +
+                       age_lt + post_lt + estrec_lt + strata(tgrade), data = long, ties = "breslow")
+stopifnot(isTRUE(all.equal(unname(coef(final_split)), unname(coef(tv)), tolerance = 1e-6)))
+zf <- cox.zph(final_split, transform = "km")$table  # log(t) is already in the model
+write.csv(data.frame(term = rownames(zf), chisq = zf[, "chisq"], df = zf[, "df"], p_value = zf[, "p"]),
+          file.path(out_dir, "final_model_ph.csv"), row.names = FALSE)
+
 metrics <- data.frame(n = nrow(df), events = sum(df$event), censored = sum(df$event == 0),
                       original_loglik = original$loglik[2], primary_loglik = primary$loglik[2],
                       time_varying_loglik = tv$loglik[2],
@@ -93,3 +107,34 @@ write.csv(nonlin, file.path(out_dir, "functional_form_diagnostics.csv"), row.nam
 spline <- update(primary, . ~ . - age - tsize - pnodes - progrec - estrec + ns(age, df = 3) + ns(tsize, df = 3) +
                    ns(pnodes, df = 3) + ns(progrec, df = 3) + ns(estrec, df = 3))
 write.csv(coef_out(spline), file.path(out_dir, "spline_sensitivity.csv"), row.names = FALSE)
+
+# External validation of the log-marker Cox model: develop on Rotterdam (node-positive,
+# censored at 7 years), validate on GBSG2. Mirrors external_validation.py.
+rot_path <- arg("--rotterdam", file.path(dirname(data_path), "rotterdam.csv"))
+rot <- read.csv(rot_path, stringsAsFactors = FALSE)
+rot <- rot[rot$nodes > 0, ]
+rot$time <- ifelse(rot$recur == 1, rot$rtime, rot$dtime)
+rot$event <- pmax(rot$recur, rot$death)
+over <- rot$time > 7 * 365.25
+rot$time[over] <- 7 * 365.25; rot$event[over] <- 0
+harmonize <- function(d) data.frame(age = d$age, meno = d$meno, size_20_50 = as.numeric(d$size == "20-50"),
+                                    size_gt50 = as.numeric(d$size == ">50"), grade3 = d$grade3, hormon = d$hormon,
+                                    log_nodes = log1p(d$nodes), log_pgr = log1p(d$pgr), log_er = log1p(d$er),
+                                    time = d$time, event = d$event)
+dev <- harmonize(transform(rot, grade3 = as.numeric(grade == 3)))
+val_raw <- read.csv(data_path, stringsAsFactors = FALSE)
+val <- harmonize(data.frame(age = val_raw$age, meno = as.numeric(val_raw$menostat == "Post"),
+                            size = as.character(cut(val_raw$tsize, c(0, 20, 50, Inf), labels = c("<=20", "20-50", ">50"))),
+                            grade3 = as.numeric(val_raw$tgrade == "III"), hormon = as.numeric(val_raw$horTh == "yes"),
+                            nodes = val_raw$pnodes, pgr = val_raw$progrec, er = val_raw$estrec,
+                            time = val_raw$time_days, event = val_raw$event))
+ext <- coxph(Surv(time, event) ~ age + meno + size_20_50 + size_gt50 + grade3 + hormon + log_nodes + log_pgr + log_er,
+             data = dev, ties = "breslow")
+val$lp <- predict(ext, newdata = val, type = "lp")
+slope <- coxph(Surv(time, event) ~ lp, data = val, ties = "breslow")
+write.csv(data.frame(term = names(coef(ext)), log_hr = unname(coef(ext))),
+          file.path(out_dir, "external_cox_coefficients.csv"), row.names = FALSE)
+write.csv(data.frame(dev_n = nrow(dev), dev_events = sum(dev$event),
+                     harrell_c = unname(concordance(Surv(time, event) ~ lp, data = val, reverse = TRUE)$concordance),
+                     calibration_slope = unname(coef(slope))),
+          file.path(out_dir, "external_validation.csv"), row.names = FALSE)

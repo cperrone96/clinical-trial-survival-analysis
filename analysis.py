@@ -300,7 +300,7 @@ def fit_counting_process(df: pd.DataFrame, long: pd.DataFrame, X: pd.DataFrame):
     return PHReg(long.stop, X, status=long.status, entry=entry, strata=strata, ties="breslow").fit(disp=0)
 
 
-def time_varying_fit(df: pd.DataFrame) -> pd.DataFrame:
+def time_varying_fit(df: pd.DataFrame, return_cov: bool = False):
     """Grade-stratified Cox model adding x * log(t / 1 year) for the covariates that still
     fail the PH test. Main effects are therefore log-HRs at 1 year of follow-up."""
     long = split_at_event_times(df)
@@ -311,9 +311,26 @@ def time_varying_fit(df: pd.DataFrame) -> pd.DataFrame:
     fit = fit_counting_process(df, long, X)
     z = stats.norm.ppf(0.975)
     b, se = np.asarray(fit.params), np.asarray(fit.bse)
-    return pd.DataFrame({"model": "grade_stratified_time_varying", "term": X.columns, "log_hr": b, "se": se,
-                         "hr": np.exp(b), "ci_low": np.exp(b - z * se), "ci_high": np.exp(b + z * se),
-                         "p_value": np.asarray(fit.pvalues), "loglik": float(fit.llf)})
+    table = pd.DataFrame({"model": "grade_stratified_time_varying", "term": X.columns, "log_hr": b, "se": se,
+                          "hr": np.exp(b), "ci_low": np.exp(b - z * se), "ci_high": np.exp(b + z * se),
+                          "p_value": np.asarray(fit.pvalues), "loglik": float(fit.llf)})
+    return (table, np.asarray(fit.cov_params())) if return_cov else table
+
+
+def time_varying_effects(tv: pd.DataFrame, cov: np.ndarray, years=(1, 3, 5)) -> pd.DataFrame:
+    """HR(t) = exp(b + c * log(t / 1 year)) with delta-method 95% CIs, per reporting unit."""
+    terms = list(tv.term)
+    z = stats.norm.ppf(0.975)
+    rows = []
+    for term in TIME_VARYING:
+        i, j = terms.index(term), terms.index(f"{term}_x_logt")
+        k = HR_UNITS[term][0]
+        for yr in years:
+            w = np.zeros(len(terms)); w[i], w[j] = k, k * np.log(yr)
+            est, se = float(w @ tv.log_hr.to_numpy()), float(np.sqrt(w @ cov @ w))
+            rows.append({"term": term, "report_unit": HR_UNITS[term][1], "years": yr, "hr": np.exp(est),
+                         "ci_low": np.exp(est - z * se), "ci_high": np.exp(est + z * se)})
+    return pd.DataFrame(rows)
 
 
 # --------------------------------------------------------------------- plots
@@ -411,7 +428,9 @@ def run(data_path: str | Path | None = None, output_dir: str | Path | None = Non
                               "term": dfb.abs().loc[top.index].idxmax(axis=1).values})
     influence.to_csv(out / "influence_diagnostics.csv", index=False)
 
-    tv = time_varying_fit(df)
+    tv, tv_cov = time_varying_fit(df, return_cov=True)
+    tv_effects = time_varying_effects(tv, tv_cov)
+    tv_effects.to_csv(out / "time_varying_effects.csv", index=False)
     tv.to_csv(out / "time_varying_sensitivity.csv", index=False)
     spline, Xs = spline_fit(df, CONTINUOUS)
 
@@ -457,6 +476,9 @@ def run(data_path: str | Path | None = None, output_dir: str | Path | None = Non
         "hormone_therapy_hr_range_across_models": [float(sensitivity.hr.min()), float(sensitivity.hr.max())],
         "ph_global_p": {"original": float(ph_orig.set_index("term").loc["GLOBAL", "p_value"]),
                         "primary": float(ph_prim.set_index("term").loc["GLOBAL", "p_value"])},
+        "time_varying_lr_test": {"chisq": float(2 * (tv.loglik.iloc[0] - primary.llf)), "df": len(TIME_VARYING),
+                                 "p_value": float(stats.chi2.sf(2 * (tv.loglik.iloc[0] - primary.llf),
+                                                                len(TIME_VARYING)))},
         "ph_flagged_primary": ph_prim.query("term != 'GLOBAL' and p_value < 0.05").term.tolist(),
         "nonlinear_terms": nonlin.query("p_value < 0.05").term.tolist(),
     }
